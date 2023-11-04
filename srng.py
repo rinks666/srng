@@ -3,14 +3,31 @@ import math
 import subprocess
 import csv
 import plotly.express as px
+import sys
 
 
 p_list = []
 
+def file_import():
+    import sys
+
+    # 引数の個数を確認
+    if len(sys.argv) != 2:
+        print(".cirファイル名を指定してください。(ex. srng si.cir)")
+        sys.exit(1)  # スクリプトを終了
+
+    # 引数からファイル名を取得
+    file_name = sys.argv[1]
+
+    try:
+        return file_name
+    except FileNotFoundError:
+        print(f"{file_name} が見つかりません。")
+    except Exception as e:
+        print(f"エラーが発生しました: {str(e)}")
+
 def scantime():
     print("\n最初の.printを出力のJJの位相に設定してください。\n電流源の名前をIzにしてください。\n\n")
-    print("サーキットファイルの名前(例 si.cir):")
-    filename = input()
     print("電流Ictlの下限値[uA]:")
     i_low = float(input())
     print("電流Ictlの上限値[uA]:")
@@ -19,7 +36,7 @@ def scantime():
     sample = float(input())
     print("1シミュレーション当たりの試行回数:")
     num_att = float(input())
-    return filename,i_low,i_high,sample,num_att
+    return i_low,i_high,sample,num_att
 
 
 def create_list(a,b,c):
@@ -34,7 +51,8 @@ def frange(start, stop, step):
         start += step
 
 
-def process_lines(filename):
+def process_lines():
+    filename = file_import()
     extracted_line = ""
     afterline =""
     default_lines = []
@@ -121,9 +139,10 @@ def graphplot():
     
 
 if __name__ == "__main__":
-    filename, i_low, i_high, sample,num_att = scantime()
+    file_import()
+    i_low, i_high, sample,num_att = scantime()
     Ictl_list = create_list(i_low,i_high,sample)
-    process_lines(filename)
+    process_lines()
     print(p_list)
     resultcsv()
     graphplot()
