@@ -1,32 +1,42 @@
+import argparse
+import subprocess
 import pandas as pd
 import math
-import subprocess
 import csv
 import plotly.express as px
-import sys
 
 
-p_list = []
+parser = argparse.ArgumentParser(description='これは素晴らしいSRNG解析用のコマンドラインツールである')    # 2. パーサを作る
 
-def file_import():
-    import sys
+# 3. parser.add_argumentで受け取る引数を追加していく
+parser.add_argument('cirfile', help='circuitfile ex. si.cir')    # 必須の引数を追加
+parser.add_argument('-m','--mode',choices=['c','b','curve'],default='curve',help='c:単純なカウントツール b:ベイジアンネットワークの解析用ツール')
 
-    # 引数の個数を確認
-    if len(sys.argv) != 2:
-        print(".cirファイル名を指定してください。(ex. srng si.cir)")
-        sys.exit(1)  # スクリプトを終了
+args = parser.parse_args()    # 4. 引数を解析
 
-    # 引数からファイル名を取得
-    file_name = sys.argv[1]
+circuit_file_name = args.cirfile    #name of the circuitfile
 
-    try:
-        return file_name
-    except FileNotFoundError:
-        print(f"{file_name} が見つかりません。")
-    except Exception as e:
-        print(f"エラーが発生しました: {str(e)}")
+def josim():
+    subprocess.run(["josim", "-o", "./A.csv", "./" + circuit_file_name, "-V", "1"],stdout=subprocess.DEVNULL)
 
-def scantime():
+def counting(c_column):
+    out_times_list = list()
+    c_column = c_column+1
+    for i in range(1,c_column):
+        p_df = pd.read_csv("A.csv",usecols=[i])
+        p_list = p_df.iloc[:,0].tolist()
+        p_range = p_list[-1]-p_list[0]
+        out_times_list.append(p_range//(2*math.pi))
+    
+    for i in range(len(out_times_list)):
+        print(i+1,'列目のSRNGの出力数は',int(out_times_list[i]))
+
+def scan_column():
+    print("いくつのSRNGの出力をカウントしますか(ex: 3):")
+    c_column = int(input())
+    return c_column
+
+def scan_curve():
     print("\n最初の.printを出力のJJの位相に設定してください。\n電流源の名前をIzにしてください。\n\n")
     print("電流Ictlの下限値[uA]:")
     i_low = float(input())
@@ -37,7 +47,6 @@ def scantime():
     print("1シミュレーション当たりの試行回数:")
     num_att = float(input())
     return i_low,i_high,sample,num_att
-
 
 def create_list(a,b,c):
     # 下限と上限の間の値を0.1刻みで生成する
@@ -50,12 +59,11 @@ def frange(start, stop, step):
         yield start
         start += step
 
-
-def process_lines():
-    filename = file_import()
+def process_lines(filename):
     extracted_line = ""
     afterline =""
     default_lines = []
+    p_list = []
 
     # ファイルを開いて処理
     with open(filename, 'r') as file:
@@ -88,7 +96,7 @@ def process_lines():
         pout = counter("A.csv")/num_att
         p_list.append(pout)
 
-
+    return p_list
 
 def counter(filename):
     p_df = pd.read_csv(filename,usecols=[1])
@@ -109,7 +117,6 @@ def resultcsv():
         for result, p in zip(Ictl_list, p_list):
             csv_writer.writerow([result, p])
     
-
 def graphplot():
 
     # CSVファイルのパス
@@ -136,13 +143,24 @@ def graphplot():
     # グラフを画像として保存
     fig.write_image('result.png')
 
-    
 
 if __name__ == "__main__":
-    file_import()
-    i_low, i_high, sample,num_att = scantime()
-    Ictl_list = create_list(i_low,i_high,sample)
-    process_lines()
-    print(p_list)
-    resultcsv()
-    graphplot()
+    if(args.mode == 'c'):
+        print('--------COUNTING_TOOL--------')
+        print('--------出力したいJJの位相(Phase)を最初に.printしてください。-------')
+        c_column = scan_column()
+        josim()
+        counting(c_column)
+
+    elif(args.mode == 'b'):
+        print('-------BAYESIAN_NETWORK_ANALYTICS--------')
+
+    else:
+        print('-------CURVE_DRAWER--------')
+        i_low, i_high, sample,num_att = scan_curve()
+        Ictl_list = create_list(i_low,i_high,sample)
+        p_list = process_lines(circuit_file_name)
+        print(p_list)
+        resultcsv()
+        graphplot()    
+
